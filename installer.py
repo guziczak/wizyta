@@ -13,6 +13,7 @@ from branding import BRAND_ICON_TAG
 # Konfiguracja
 REPO_URL = "https://github.com/guziczak/wizyta/archive/refs/heads/main.zip"
 REPO_API_COMMIT = "https://api.github.com/repos/guziczak/wizyta/commits/main"
+REPO_API_META = "https://api.github.com/repos/guziczak/wizyta"
 APP_NAME = "AsystentMedyczny"
 DISPLAY_NAME = "Wizyta"
 SHORTCUT_NAME = DISPLAY_NAME
@@ -85,6 +86,55 @@ def get_remote_commit():
             return data.get("sha")
     except Exception:
         return None
+
+
+def get_default_branch() -> str | None:
+    try:
+        req = urllib.request.Request(
+            REPO_API_META,
+            headers={"User-Agent": f"{APP_NAME}-installer"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data.get("default_branch")
+    except Exception:
+        return None
+
+
+def _iter_repo_urls():
+    branch = get_default_branch() or "main"
+    urls = [
+        f"https://github.com/guziczak/wizyta/archive/refs/heads/{branch}.zip",
+        f"https://codeload.github.com/guziczak/wizyta/zip/refs/heads/{branch}",
+    ]
+    seen = set()
+    for url in urls:
+        if url not in seen:
+            seen.add(url)
+            yield url
+
+
+def _download_with_progress(url: str, dest_path: str):
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": f"{APP_NAME}-installer"}
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        total = int(resp.headers.get("Content-Length", "0") or "0")
+        downloaded = 0
+        chunk_size = 256 * 1024
+        with open(dest_path, "wb") as f:
+            while True:
+                chunk = resp.read(chunk_size)
+                if not chunk:
+                    break
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total > 0:
+                    print_progress("    Pobieranie", downloaded, total)
+                else:
+                    print_progress("    Pobieranie", downloaded, max(downloaded, 1))
+        progress_done()
 
 
 def read_state(path):
@@ -530,13 +580,20 @@ def run_installer(auto_launch: bool = True, result: dict | None = None):
     try:
         if not skip_download:
             print_step("Pobieranie najnowszej wersji aplikacji...")
-
-            def _download_hook(block_num, block_size, total_size):
-                downloaded = block_num * block_size
-                print_progress("    Pobieranie", downloaded, total_size)
-
-            urllib.request.urlretrieve(REPO_URL, zip_path, reporthook=_download_hook)
-            progress_done()
+            download_ok = False
+            last_err = None
+            for url in _iter_repo_urls():
+                try:
+                    log_info(f"Próba pobrania z: {url}")
+                    _download_with_progress(url, zip_path)
+                    download_ok = True
+                    break
+                except Exception as e:
+                    last_err = e
+                    log_info(f"Błąd pobierania z {url}: {e}")
+                    continue
+            if not download_ok:
+                raise last_err or Exception("Wszystkie źródła pobierania zawiodły")
     except Exception as e:
         print_error(f"Nie udalo sie pobrac plikow: {e}")
 
