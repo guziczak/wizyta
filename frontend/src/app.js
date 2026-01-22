@@ -6,17 +6,18 @@
 };
 
 const $ = (id) => document.getElementById(id);
+
 const hostInput = $('host');
-const statusDot = $('status-dot');
-const statusTitle = $('status-title');
-const statusSub = $('status-sub');
-const heroMeta = $('hero-meta');
+const statusPill = $('status-pill');
+const statusDetail = $('status-detail');
 const backendValue = $('backend-value');
 const modelValue = $('model-value');
 const deviceValue = $('device-value');
 const portValue = $('port-value');
 const backendLogPreview = $('backend-log-preview');
 const frontendLogBox = $('frontend-log-box');
+const connectPanel = $('connect-panel');
+const servicePanel = $('service-panel');
 
 const log = (level, message, data) => {
   const entry = {
@@ -29,8 +30,8 @@ const log = (level, message, data) => {
   if (state.frontendLogs.length > 300) {
     state.frontendLogs.shift();
   }
-  const line = `[${entry.time}] [${level}] ${message}` + (data ? ` | ${JSON.stringify(data)}` : '');
   if (frontendLogBox) {
+    const line = `[${entry.time}] [${level}] ${message}` + (data ? ` | ${JSON.stringify(data)}` : '');
     frontendLogBox.textContent = `${line}\n${frontendLogBox.textContent}`.trim();
   }
   if (level === 'error') {
@@ -41,14 +42,20 @@ const log = (level, message, data) => {
 };
 
 const setStatus = (ok, title, subtitle) => {
-  statusDot.classList.toggle('good', ok);
-  statusTitle.textContent = title;
-  statusSub.textContent = subtitle;
+  if (statusPill) {
+    statusPill.textContent = title;
+    statusPill.classList.toggle('good', ok);
+  }
+  if (statusDetail) {
+    statusDetail.textContent = subtitle;
+  }
 };
 
 const setHost = (value) => {
   state.host = value.trim();
-  hostInput.value = state.host;
+  if (hostInput) {
+    hostInput.value = state.host;
+  }
   localStorage.setItem('wizytaHost', state.host);
   log('info', 'Host ustawiony', { host: state.host });
 };
@@ -69,15 +76,13 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 2500) => {
 };
 
 const updateHealthUI = (data) => {
-  backendValue.textContent = data.backend || '—';
-  modelValue.textContent = data.model || '—';
-  deviceValue.textContent = data.device || '—';
-  portValue.textContent = data.port ? String(data.port) : '—';
+  if (backendValue) backendValue.textContent = data.backend || '-';
+  if (modelValue) modelValue.textContent = data.model || '-';
+  if (deviceValue) deviceValue.textContent = data.device || '-';
+  if (portValue) portValue.textContent = data.port ? String(data.port) : '-';
 };
 
 const checkHealth = async () => {
-  const start = new Date();
-  heroMeta.textContent = `Ostatnie sprawdzenie: ${start.toLocaleTimeString('pl-PL')}`;
   try {
     const res = await fetchWithTimeout(`${state.host}/api/health`, { mode: 'cors' }, 3000);
     if (!res.ok) {
@@ -86,11 +91,11 @@ const checkHealth = async () => {
     const data = await res.json();
     state.lastHealth = data;
     updateHealthUI(data);
-    setStatus(true, 'Połączono z Powiernikiem', data.message || 'Host odpowiada poprawnie.');
+    setStatus(true, 'Połączono', data.message || 'Powiernik działa poprawnie.');
     log('info', 'Powiernik online', data);
     return true;
   } catch (err) {
-    setStatus(false, 'Brak połączenia', 'Nie udało się pobrać /api/health.');
+    setStatus(false, 'Brak połączenia', 'Uruchom Powiernika i kliknij „Połącz”.');
     log('error', 'Powiernik offline lub blokada przeglądarki', { error: String(err) });
     return false;
   }
@@ -124,10 +129,14 @@ const fetchBackendLogs = async () => {
     const data = await res.json();
     const text = data.lines ? data.lines.join('\n') : (data.stdout_lines || []).join('\n');
     state.backendLogs = text || JSON.stringify(data, null, 2);
-    backendLogPreview.textContent = state.backendLogs || 'Brak logów.';
+    if (backendLogPreview) {
+      backendLogPreview.textContent = state.backendLogs || 'Brak logów.';
+    }
     log('info', 'Pobrano logi hosta', { lines: (data.lines || []).length });
   } catch (err) {
-    backendLogPreview.textContent = `Błąd pobierania logów: ${err}`;
+    if (backendLogPreview) {
+      backendLogPreview.textContent = `Błąd pobierania logów: ${err}`;
+    }
     log('error', 'Nie udało się pobrać logów hosta', { error: String(err) });
   }
 };
@@ -166,26 +175,79 @@ window.addEventListener('unhandledrejection', (event) => {
   log('error', 'Nieobsłużone odrzucenie', { reason: String(event.reason) });
 });
 
-hostInput.value = state.host;
+if (hostInput) {
+  hostInput.value = state.host;
+}
 
-$('save-host').addEventListener('click', () => setHost(hostInput.value));
-$('connect-now').addEventListener('click', checkHealth);
-$('refresh-status').addEventListener('click', checkHealth);
-$('scan-ports').addEventListener('click', scanPorts);
-$('open-local').addEventListener('click', () => openLocal('/'));
-$('open-health').addEventListener('click', () => openLocal('/api/health'));
-$('fetch-backend-logs').addEventListener('click', fetchBackendLogs);
-$('copy-frontend-logs').addEventListener('click', () => copyToClipboard(JSON.stringify(state.frontendLogs, null, 2)));
-$('copy-debug').addEventListener('click', () => copyToClipboard(buildDebugBundle()));
-$('open-logs').addEventListener('click', fetchBackendLogs);
-$('clear-logs').addEventListener('click', () => {
-  state.frontendLogs = [];
-  frontendLogBox.textContent = '';
-});
+const connectNow = $('connect-now');
+const connectNow2 = $('connect-now-2');
+const serviceToggle = $('service-toggle');
+const openLocalBtn = $('open-local');
+const scanPortsBtn = $('scan-ports');
 
-Array.from(document.querySelectorAll('[data-open]')).forEach((el) => {
-  el.addEventListener('click', () => openLocal(el.getAttribute('data-open')));
-});
+if (connectNow && connectPanel) {
+  connectNow.addEventListener('click', () => {
+    connectPanel.classList.remove('hidden');
+    connectPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (hostInput) {
+      hostInput.focus();
+    }
+  });
+}
+
+if (connectNow2) {
+  connectNow2.addEventListener('click', checkHealth);
+}
+
+if (serviceToggle && servicePanel) {
+  serviceToggle.addEventListener('click', () => {
+    servicePanel.classList.toggle('hidden');
+    if (!servicePanel.classList.contains('hidden')) {
+      servicePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+}
+
+const saveHostBtn = $('save-host');
+if (saveHostBtn && hostInput) {
+  saveHostBtn.addEventListener('click', () => setHost(hostInput.value));
+}
+
+const refreshStatusBtn = $('refresh-status');
+if (refreshStatusBtn) {
+  refreshStatusBtn.addEventListener('click', checkHealth);
+}
+
+const openHealthBtn = $('open-health');
+if (openHealthBtn) {
+  openHealthBtn.addEventListener('click', () => openLocal('/api/health'));
+}
+
+const fetchBackendLogsBtn = $('fetch-backend-logs');
+if (fetchBackendLogsBtn) {
+  fetchBackendLogsBtn.addEventListener('click', fetchBackendLogs);
+}
+
+const copyDebugBtn = $('copy-debug');
+if (copyDebugBtn) {
+  copyDebugBtn.addEventListener('click', () => copyToClipboard(buildDebugBundle()));
+}
+
+const clearLogsBtn = $('clear-logs');
+if (clearLogsBtn && frontendLogBox) {
+  clearLogsBtn.addEventListener('click', () => {
+    state.frontendLogs = [];
+    frontendLogBox.textContent = '';
+  });
+}
+
+if (openLocalBtn) {
+  openLocalBtn.addEventListener('click', () => openLocal('/'));
+}
+
+if (scanPortsBtn) {
+  scanPortsBtn.addEventListener('click', scanPorts);
+}
 
 log('info', 'Front uruchomiony');
 checkHealth();
