@@ -113,9 +113,7 @@ const scanPorts = async () => {
         await checkHealth();
         return;
       }
-    } catch (err) {
-      // ignore
-    }
+    } catch (err) { /* ignore */ }
   }
   log('warn', 'Nie znaleziono Powiernika na standardowych portach.');
 };
