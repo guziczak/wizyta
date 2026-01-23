@@ -1020,7 +1020,7 @@ def run_gui():
                         _start_log_tail(log_path)
                 open_btn.config(
                     state="normal",
-                    command=lambda: webbrowser.open("https://guziczak.github.io/wizyta/", new=1, autoraise=True)
+                    command=lambda: webbrowser.open("http://127.0.0.1:8089/", new=1, autoraise=True)
                 )
                 hint_label.config(
                     text="Aplikacja uruchomiona. Jesli przegladarka sie nie otworzyla, kliknij „Otworz w przegladarce”.",

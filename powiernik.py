@@ -20,7 +20,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, request, jsonify, Response, make_response
+from flask import Flask, request, jsonify, Response, make_response, send_file, send_from_directory
 
 # ---------------------------------------------------------------------------
 # Ścieżki
@@ -110,6 +110,28 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
+# ---------------------------------------------------------------------------
+# Frontend routes
+# ---------------------------------------------------------------------------
+@app.route('/')
+def serve_frontend():
+    """Serwuje główną stronę aplikacji."""
+    index_path = BASE_DIR / "index.html"
+    if index_path.exists():
+        return send_file(index_path, mimetype='text/html')
+    return "Frontend nie znaleziony. Uruchom ponownie instalator.", 404
+
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    """Serwuje pliki statyczne (CSS, JS, obrazki)."""
+    assets_dir = BASE_DIR / "assets"
+    if assets_dir.exists():
+        return send_from_directory(assets_dir, filename)
+    return "Asset nie znaleziony", 404
+
+# ---------------------------------------------------------------------------
+# API routes
+# ---------------------------------------------------------------------------
 @app.route('/api/health', methods=['GET', 'OPTIONS'])
 def healthcheck():
     """Status serwera dla frontendu."""
@@ -176,7 +198,7 @@ def main():
     log("info", "  POWIERNIK - Backend dla Wizyta")
     log("info", "========================================")
     log("info", f"Port: {PORT}")
-    log("info", f"Frontend: https://guziczak.github.io/wizyta/")
+    log("info", f"Frontend: http://127.0.0.1:{PORT}/")
     log("info", "")
 
     # Sprawdź czy port jest wolny
