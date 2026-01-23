@@ -99,15 +99,32 @@ def read_tail(filepath: Path, lines: int = 200) -> list[str]:
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
 
+@app.before_request
+def handle_preflight():
+    """Obsługuje preflight requests dla Private Network Access."""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        origin = request.headers.get("Origin", "*")
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        # Kluczowe dla Private Network Access
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+        return response, 204
+
 @app.after_request
 def add_cors_headers(response):
-    """Dodaje nagłówki CORS i Private Network Access."""
+    """Dodaje nagłówki CORS i Private Network Access do wszystkich odpowiedzi."""
     origin = request.headers.get("Origin", "")
     if origin:
         response.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Private-Network"] = "true"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
 # ---------------------------------------------------------------------------
