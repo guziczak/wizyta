@@ -1,5 +1,5 @@
 ﻿const state = {
-  host: localStorage.getItem('wizytaHost') || 'http://127.0.0.1:8089',
+  host: localStorage.getItem('wizytaHost') || 'https://127.0.0.1:8089',
   frontendLogs: [],
   backendLogs: '',
   lastHealth: null,

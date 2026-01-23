@@ -13,6 +13,7 @@ psutil
 huggingface_hub
 tqdm
 flask
+cryptography
 cloudscraper
 anthropic
 
