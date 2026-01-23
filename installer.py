@@ -18,7 +18,7 @@ APP_NAME = "AsystentMedyczny"
 DISPLAY_NAME = "Wizyta"
 SHORTCUT_NAME = DISPLAY_NAME
 RESET_SHORTCUT_NAME = f"Reset {DISPLAY_NAME}"
-MAIN_SCRIPT = "stomatolog_nicegui.py"
+MAIN_SCRIPT = "powiernik.py"
 ICON_REL_PATH = os.path.join("extension", f"icon_{BRAND_ICON_TAG}.ico")
 STATE_FILE = ".install_state.json"
 
@@ -1020,7 +1020,7 @@ def run_gui():
                         _start_log_tail(log_path)
                 open_btn.config(
                     state="normal",
-                    command=lambda: webbrowser.open("http://127.0.0.1:8089", new=1, autoraise=True)
+                    command=lambda: webbrowser.open("https://guziczak.github.io/wizyta/", new=1, autoraise=True)
                 )
                 hint_label.config(
                     text="Aplikacja uruchomiona. Jesli przegladarka sie nie otworzyla, kliknij „Otworz w przegladarce”.",

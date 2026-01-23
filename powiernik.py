@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+"""
+Powiernik - minimalny serwer API dla frontendu Wizyta.
+
+Działa headless (bez UI), udostępnia:
+- /api/health - status serwera
+- /api/debug/logs - logi do debugowania
+- /api/session-key - odbiera session key z rozszerzenia
+- CORS dla GitHub Pages
+
+Uruchomienie:
+    python powiernik.py
+    pythonw powiernik.py  # bez okna konsoli
+"""
+
+import os
+import sys
+import json
+import threading
+from datetime import datetime
+from pathlib import Path
+
+from flask import Flask, request, jsonify, Response, make_response
+
+# ---------------------------------------------------------------------------
+# Ścieżki
+# ---------------------------------------------------------------------------
+BASE_DIR = Path(__file__).parent
+LOG_DIR = BASE_DIR / "logs"
+STDOUT_LOG_FILE = LOG_DIR / "stdout.log"
+APP_LOG_FILE = LOG_DIR / "app.log"
+CONFIG_FILE = BASE_DIR / "config.json"
+
+LOG_DIR.mkdir(exist_ok=True)
+
+# ---------------------------------------------------------------------------
+# Prosty logger
+# ---------------------------------------------------------------------------
+def log(level: str, msg: str):
+    """Loguje do pliku i stdout."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"{timestamp} [{level.upper()}] {msg}"
+    print(line, flush=True)
+    try:
+        with open(APP_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
+# ---------------------------------------------------------------------------
+# Config Manager (uproszczony)
+# ---------------------------------------------------------------------------
+class ConfigManager:
+    """Prosty manager konfiguracji JSON."""
+
+    def __init__(self, path: Path = CONFIG_FILE):
+        self.path = path
+        self._data = {}
+        self._load()
+
+    def _load(self):
+        if self.path.exists():
+            try:
+                with open(self.path, "r", encoding="utf-8") as f:
+                    self._data = json.load(f)
+            except Exception:
+                self._data = {}
+
+    def _save(self):
+        try:
+            with open(self.path, "w", encoding="utf-8") as f:
+                json.dump(self._data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            log("error", f"Nie można zapisać config: {e}")
+
+    def get(self, key: str, default=None):
+        return self._data.get(key, default)
+
+    def set(self, key: str, value):
+        self._data[key] = value
+        self._save()
+
+# ---------------------------------------------------------------------------
+# Utility
+# ---------------------------------------------------------------------------
+def read_tail(filepath: Path, lines: int = 200) -> list[str]:
+    """Czyta ostatnie N linii z pliku."""
+    if not filepath.exists():
+        return []
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+            return [line.rstrip() for line in all_lines[-lines:]]
+    except Exception:
+        return []
+
+# ---------------------------------------------------------------------------
+# Flask App
+# ---------------------------------------------------------------------------
+app = Flask(__name__)
+
+@app.after_request
+def add_cors_headers(response):
+    """Dodaje nagłówki CORS i Private Network Access."""
+    origin = request.headers.get("Origin", "")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+@app.route('/api/health', methods=['GET', 'OPTIONS'])
+def healthcheck():
+    """Status serwera dla frontendu."""
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    cfg = ConfigManager()
+    return jsonify({
+        "ok": True,
+        "message": "Powiernik odpowiada",
+        "backend": cfg.get("transcriber_backend", "openvino_whisper"),
+        "model": cfg.get("transcriber_model", "small"),
+        "device": cfg.get("selected_device", "auto"),
+        "port": PORT,
+        "timestamp": datetime.now().isoformat(),
+    })
+
+@app.route('/api/debug/logs', methods=['GET', 'OPTIONS'])
+def debug_logs():
+    """Zwraca ostatnie linie logów."""
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    try:
+        tail = int(request.args.get("tail", "200"))
+    except ValueError:
+        tail = 200
+    tail = max(10, min(tail, 2000))
+
+    app_lines = read_tail(APP_LOG_FILE, tail)
+    stdout_lines = read_tail(STDOUT_LOG_FILE, tail)
+
+    return jsonify({
+        "lines": app_lines,
+        "stdout_lines": stdout_lines,
+        "timestamp": datetime.now().isoformat(),
+    })
+
+@app.route('/api/session-key', methods=['POST', 'OPTIONS'])
+def receive_session_key():
+    """Odbiera session key z rozszerzenia przeglądarki."""
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    try:
+        data = request.get_json()
+        session_key = data.get('sessionKey') if data else None
+        if session_key:
+            cfg = ConfigManager()
+            cfg.set('session_key', session_key)
+            log("info", "Session key otrzymany z rozszerzenia")
+            return jsonify({'success': True, 'message': 'Session key zapisany'})
+        return jsonify({'success': False, 'error': 'Brak sessionKey'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+PORT = 8089
+
+def main():
+    log("info", "========================================")
+    log("info", "  POWIERNIK - Backend dla Wizyta")
+    log("info", "========================================")
+    log("info", f"Port: {PORT}")
+    log("info", f"Frontend: https://guziczak.github.io/wizyta/")
+    log("info", "")
+
+    # Sprawdź czy port jest wolny
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    result = sock.connect_ex(('127.0.0.1', PORT))
+    sock.close()
+    if result == 0:
+        log("warn", f"Port {PORT} jest już zajęty!")
+        log("info", "Może inna instancja Powiernika już działa?")
+
+    # Uruchom serwer
+    log("info", f"Uruchamiam serwer na http://127.0.0.1:{PORT}")
+    log("info", "Naciśnij Ctrl+C aby zatrzymać.")
+
+    # Wyłącz debug output Flaska
+    import logging
+    werkzeug_log = logging.getLogger('werkzeug')
+    werkzeug_log.setLevel(logging.WARNING)
+
+    try:
+        app.run(
+            host='0.0.0.0',
+            port=PORT,
+            debug=False,
+            threaded=True,
+            use_reloader=False
+        )
+    except KeyboardInterrupt:
+        log("info", "Zatrzymano przez użytkownika.")
+    except Exception as e:
+        log("error", f"Błąd serwera: {e}")
+
+if __name__ == "__main__":
+    main()
