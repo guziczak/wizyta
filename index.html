@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wizyta — demonstracja</title>
+<meta name="description" content="Wizyta v2 — z rozmowy w gabinecie powstaje gotowa dokumentacja: transkrypcja + diaryzacja, a AI układa Diagnozy ICD-10, Procedury ICD-9/NFZ, Pozycje punktowane NFZ i Leki. Wielospecjalizacyjne, offline, lokalny silnik „Powiernik”.">
+<meta name="theme-color" content="#1d4ed8">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACkElEQVR4nOXbP2gTURzA8W9+uZTaFIwksbFJhSoqSFGRKugkFcHJxUEdHBQXHfyDi3/qVv8MFp3sZgcRdHBwE1FxtiIKIqKIUIxamkCEiAHzR16gQ2hMLr3cJdffZwlc3r337se99+4evwsMHfhYQTFBOUE5QTlBOUE5y4tGggKbh3uJR4IQaFK4AvO5Eh++FiiVl0EAxkbDXDuZYDDWWlPp+b9cvDPHyze/8e0QGBsNc3c81fLFG8l4iOkrKfZsD+PLAAQFrp9KIAGndQxUf90iblU8sr6XNVHnI8zcCWb+8N0cEF0ZXHTs9sMsbz/9aXjeto0rOHsoWnOsOnn6eRVYYC7+xeslTGoOhlEzgnKCcoJyAbv7AfFVFuePRNm3s59YxCLg4rhcikoFMrkiT1/luXk/Q/ZXqX0BSK0O8ejG2rYsa174nily8MJs9WmyLUNg8kzCNxdvmCfPydMJW2WlWYGhgRC7Rvrwm91b+qp3ruMADA/24Ffrkj3OA2C59xDmOjt9F5QTlBOUszrR6LvPBW49yNQcO3c4xtYN7r32dlUAMrniorfCo/sjnegK6oeAoJygnKCcoJzl5VK3oN67utkwvfckV7e8m0uk5eVS1yxg/+PmEikoJygnKGe5VfHeHf3MPt5U97/nM3mOTaRrjk2PJ6vneE1QTlBOUE5QTlBOUM7qRKONlkivCcoJygnKCctZpQ0ByNpMNOhGJuXWcQDefynwI1vEb0yShMk3dhyAUhkuT81R9tGHNaavl6Z+2kq2FjsVPpvJc+Jq2hd3gunj8YlvtrfjAq18NGVydk0KbL0s0G5g5iszZFtJs7daacBU3Gjz0o8E5QTlBOUE5QTlBOUE5QTlpNMd6LR/GSGuWWr9omMAAAAASUVORK5CYII=">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:title" content="Wizyta — z rozmowy gotowa dokumentacja (ICD-10 + NFZ)">
+<meta property="og:description" content="Wielospecjalizacyjny asystent: z rozmowy układa dokumentację z kodami ICD-10, procedurami ICD-9/NFZ i punktacją NFZ. Demo interaktywne.">
+<meta property="og:url" content="https://guziczak.github.io/wizyta/">
+<style>
+/* =====================================================================
+   Wizyta v2 — interaktywne demo (jeden plik, zero zależności).
+   Wielospecjalizacyjne: przełącznik specjalizacji zmienia kolor, zakres
+   NFZ i cały przypadek (transkrypcja + 4 tabele). Logo/kolor z branding.py,
+   dane i kody z medical_knowledge.db (Psychiatria / Stomatologia / Kardiologia).
+   ===================================================================== */
+:root{
+  --blue:#1d4ed8; --blue-2:#1976d2; --primary:#1976d2; --spec:#9333ea;
+  --green:#2e9e4f; --green-d:#277f42; --orange:#ef8e1b;
+  --bg:#eef1f5; --card:#ffffff; --ink:#1f2733; --muted:#5f6b7a; --faint:#9aa4b2;
+  --line:#dfe3e8; --line-2:#eef1f4; --head:#f6f8fa; --chip:#eef3f8;
+  --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.06);
+  --shadow-2:0 4px 14px rgba(16,24,40,.10);
+}
+body.dark{
+  --blue:#173a8a; --blue-2:#5aa2f0; --primary:#5aa2f0;
+  --bg:#0f141b; --card:#161c25; --ink:#e7ecf3; --muted:#9aa6b6; --faint:#6b7787;
+  --line:#26303c; --line-2:#1d2630; --head:#1b232e; --chip:#1d2733;
+  --shadow:0 1px 3px rgba(0,0,0,.5); --shadow-2:0 6px 20px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:"Segoe UI Variable","Segoe UI",Roboto,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;transition:background .2s,color .2s}
+
+.appbar{position:sticky;top:0;z-index:50;background:var(--blue);color:#fff;display:flex;align-items:center;gap:8px;padding:0 12px;height:52px;box-shadow:0 2px 6px rgba(0,0,0,.22);overflow-x:auto;scrollbar-width:none}
+.appbar::-webkit-scrollbar{display:none}
+.appbar .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;white-space:nowrap}
+.appbar .logo .ic{width:30px;height:30px;border-radius:8px}
+.appbar .logo img.ic{object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.hsp{width:6px;flex:none}.hgrow{flex:1 1 auto;min-width:8px}
+.hbtn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 11px;border-radius:7px;color:#fff;background:transparent;border:none;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.hbtn:hover{background:rgba(255,255,255,.14)}.hbtn.outline{border:1px solid rgba(255,255,255,.5)}
+.hchip{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 10px;border-radius:7px;background:rgba(255,255,255,.16);color:#fff;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+.hchip.spec{background:rgba(255,255,255,.24)}
+.hchip:hover{background:rgba(255,255,255,.3)}
+.ver{font-size:12px;opacity:.85;white-space:nowrap}
+.moon{cursor:pointer;font-size:16px;padding:6px;border-radius:7px}.moon:hover{background:rgba(255,255,255,.14)}
+
+/* menu specjalizacji */
+.specmenu{position:fixed;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow-2);padding:6px;display:none;min-width:218px}
+.specmenu.show{display:block;animation:pop .18s ease both}
+.specmenu .head{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:6px 10px 4px;font-weight:700}
+.specitem{padding:9px 11px;border-radius:8px;font-size:13.5px;cursor:pointer;display:flex;gap:10px;align-items:center;color:var(--ink)}
+.specitem:hover{background:var(--line-2)}
+.specitem.on{font-weight:700}
+.specitem .dot{margin-left:auto;width:9px;height:9px;border-radius:50%}
+.specitem.disabled{color:var(--faint);cursor:default;font-size:12px}.specitem.disabled:hover{background:none}
+
+.wrap{max-width:1040px;margin:0 auto;padding:18px 14px 90px;display:flex;flex-direction:column;gap:14px}
+
+.hero{background:linear-gradient(180deg,#ffffff,#eaf3fd);border:1px solid var(--line);border-radius:14px;padding:30px 24px;box-shadow:var(--shadow-2);text-align:center;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;inset:-40% -10% auto;height:60%;background:radial-gradient(60% 100% at 50% 0,rgba(29,78,216,.16),transparent 70%);pointer-events:none}
+body.dark .hero{background:linear-gradient(180deg,#18222e,#131a23)}
+.hero>*{position:relative}
+.hero .kick{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--primary);font-weight:800}
+.hero h1{margin:10px auto 8px;max-width:17ch;font-size:clamp(24px,3.7vw,40px);line-height:1.08;font-weight:800;letter-spacing:-.6px}
+.hero h1 span{background:linear-gradient(90deg,#2563eb,var(--spec));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lead{max-width:58ch;margin:0 auto;color:var(--muted);font-size:14.5px;line-height:1.6}
+.hstats{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.hstat{display:flex;flex-direction:column;align-items:center;line-height:1.12}
+.hstat b{font-size:23px;font-weight:800;background:linear-gradient(90deg,#2563eb,var(--spec));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hstat span{font-size:11.5px;color:var(--muted);margin-top:2px}
+.vchips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:18px}
+.vchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:999px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);animation:pop .4s ease both}
+.hero-actions{display:flex;flex-direction:column;align-items:center;gap:9px;margin-top:20px}
+.hero-or{font-size:12.5px;color:var(--muted)}.hero-or b{color:var(--ink)}
+
+.btn{font:inherit;cursor:pointer;border:none;border-radius:8px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:filter .15s,box-shadow .15s,background .15s,transform .1s}
+.btn:active{transform:translateY(1px)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.play{background:var(--blue);color:#fff;padding:14px 26px;font-size:15px;box-shadow:0 8px 22px rgba(29,78,216,.32)}
+.btn.play:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn.rec{background:var(--primary);color:#fff;padding:13px 22px;font-size:14px;box-shadow:var(--shadow-2)}
+.btn.rec.on{background:#e53935}.btn.rec:hover{filter:brightness(1.06)}
+.btn.gen{background:var(--green);color:#fff;padding:13px 26px;font-size:14.5px;min-width:280px;box-shadow:var(--shadow-2)}
+.btn.gen:hover{background:var(--green-d)}
+.btn.pick{background:var(--primary);color:#fff;padding:12px 26px;font-size:14px;min-width:280px}
+.btn.pick:hover{filter:brightness(1.06)}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:18px}
+.card h2{margin:0 0 2px;font-size:15px;font-weight:700}.card .sub{font-size:12.5px;color:var(--muted)}.center{text-align:center}
+.trust-note{font-size:12px;color:var(--muted);background:var(--line-2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-top:9px}.trust-note b{color:var(--ink)}
+.rec-top{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 14px}
+.rec-status{font-size:13px;color:var(--green);font-weight:600}.rec-status.live{color:#e53935}
+.lbl{font-size:13px;color:var(--muted);margin-bottom:5px}
+.memo{width:100%;min-height:120px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:11px 13px;font:inherit;font-size:13.5px;line-height:1.6;resize:vertical;white-space:pre-wrap;overflow:auto}
+.memo:focus{outline:none;box-shadow:0 0 0 2px rgba(25,118,210,.35);border-color:transparent}
+.memo .L{color:var(--blue-2);font-weight:600}.memo .P{color:var(--green-d);font-weight:600}
+.rec-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;flex-wrap:wrap}
+.tbtn{background:none;border:none;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px}
+.tbtn.warn{color:var(--orange)}.tbtn.blue{color:var(--primary)}.tbtn:hover{background:var(--line-2)}
+.sug{margin-top:10px;font-size:12.5px;color:var(--muted)}
+.sug .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:7px}
+.chip-q{background:var(--chip);border:1px solid var(--line);border-radius:14px;padding:6px 11px;font-size:12.5px;cursor:pointer;color:var(--ink);animation:pop .35s ease both}
+.chip-q:hover{border-color:var(--primary);color:var(--primary)}
+.radios{display:flex;gap:18px;justify-content:center;align-items:center;margin:10px 0 16px;font-size:14px}
+.radios label{display:inline-flex;align-items:center;gap:7px;cursor:pointer}.radios input{accent-color:var(--primary);width:17px;height:17px}
+.gen-btns{display:flex;flex-direction:column;gap:10px;align-items:center}
+
+.vbanner{display:flex;align-items:center;gap:8px;background:rgba(46,158,79,.12);border:1px solid rgba(46,158,79,.4);color:var(--green-d);font-size:13.5px;padding:11px 14px;border-radius:9px;margin:6px 0 14px;font-weight:500;animation:rowin .4s ease both}
+body.dark .vbanner{color:#6bdc93}
+.sec{margin-top:16px}
+.sec-h{display:flex;align-items:center;gap:9px;margin-bottom:8px;flex-wrap:wrap}
+.sec-h .sq{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;color:#fff}
+.sec-h .nm{font-size:13.5px;font-weight:700}.sec-h .hint{font-size:12px;color:var(--faint)}
+.sec-tools{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.minibtn{font:inherit;font-size:11.5px;border:1px solid var(--line);background:var(--card);color:var(--primary);border-radius:6px;padding:5px 9px;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+.minibtn:hover{background:var(--line-2)}
+.gridwrap{border:1px solid var(--line);border-radius:7px;overflow:auto;background:var(--card)}
+.grid{min-width:640px;font-size:12.5px}
+.grid .gh,.grid .gr{display:grid;align-items:center}
+.grid .gh{background:var(--head);border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}
+.grid .gr{border-bottom:1px solid var(--line-2);animation:rowin .35s ease both}
+.grid .gr:last-child{border-bottom:none}.grid .gr:hover{background:var(--line-2)}
+.grid .c{padding:9px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid .c.wrap{white-space:normal;line-height:1.4}
+.grid .empty{padding:30px;text-align:center;color:var(--faint);font-size:12.5px}
+.grid input[type=checkbox]{accent-color:var(--primary);width:14px;height:14px;vertical-align:-2px}
+.code{font-family:"Cascadia Code",Consolas,monospace;font-weight:700;font-size:12px;padding:2px 7px;border-radius:5px;color:#fff;white-space:nowrap}
+.code.icd{background:var(--blue-2)}.code.icd9{background:var(--green)}.code.nfz{background:var(--spec)}.code.ean{background:#475569}
+.loc{display:inline-grid;place-items:center;min-width:26px;height:23px;padding:0 6px;border-radius:7px;background:color-mix(in srgb,var(--spec) 16%,transparent);color:var(--spec);font-weight:700;font-size:12.5px}
+.pts{font-weight:700;color:var(--green-d)}body.dark .pts{color:#6bdc93}
+.badge{font-size:10.5px;padding:2px 7px;border-radius:10px;background:var(--chip);color:var(--muted);border:1px solid var(--line)}
+.badge.ok{color:var(--green-d);border-color:rgba(46,158,79,.4)}body.dark .badge.ok{color:#6bdc93}
+.badge.spec{background:color-mix(in srgb,var(--spec) 13%,transparent);color:var(--spec);border-color:color-mix(in srgb,var(--spec) 35%,transparent)}
+.copyjson{display:flex;justify-content:flex-end;margin-top:12px}
+.sumbar{display:flex;justify-content:flex-end;gap:14px;font-size:12.5px;color:var(--muted);padding:8px 4px 0}.sumbar b{color:var(--ink)}
+
+.cta-band{background:linear-gradient(120deg,var(--blue),#4263eb);color:#fff;border-radius:14px;padding:24px 26px;box-shadow:var(--shadow-2)}
+.cta-in{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.cta-band h3{margin:0 0 5px;font-size:20px;font-weight:800}
+.cta-band p{margin:0;font-size:13.5px;opacity:.93;max-width:48ch;line-height:1.5}
+.cta-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn.ctaprimary{background:#fff;color:var(--blue);padding:13px 22px;font-size:14.5px;text-decoration:none}
+.btn.ctaprimary:hover{filter:brightness(.96)}
+.btn.ctacopy{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.45);padding:12px 15px;font-size:13px}
+.btn.ctacopy:hover{background:rgba(255,255,255,.26)}
+
+.foot{max-width:1040px;margin:0 auto;padding:8px 16px 26px;color:var(--faint);font-size:12px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.foot a,.mailcopy{color:var(--primary);cursor:pointer;text-decoration:none;font-weight:600}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#263238;color:#fff;font-size:13px;padding:10px 18px;border-radius:8px;box-shadow:var(--shadow-2);opacity:0;transition:opacity .3s;z-index:99;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+@keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+@keyframes rowin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important}}
+@media(max-width:720px){.wrap{padding:14px 10px 90px}.btn.gen,.btn.pick{min-width:0;width:100%}.cta-in{flex-direction:column;text-align:center}}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="logo"><img class="ic" alt="Wizyta" width="30" height="30" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACkElEQVR4nOXbP2gTURzA8W9+uZTaFIwksbFJhSoqSFGRKugkFcHJxUEdHBQXHfyDi3/qVv8MFp3sZgcRdHBwE1FxtiIKIqKIUIxamkCEiAHzR16gQ2hMLr3cJdffZwlc3r337se99+4evwsMHfhYQTFBOUE5QTlBOUE5y4tGggKbh3uJR4IQaFK4AvO5Eh++FiiVl0EAxkbDXDuZYDDWWlPp+b9cvDPHyze/8e0QGBsNc3c81fLFG8l4iOkrKfZsD+PLAAQFrp9KIAGndQxUf90iblU8sr6XNVHnI8zcCWb+8N0cEF0ZXHTs9sMsbz/9aXjeto0rOHsoWnOsOnn6eRVYYC7+xeslTGoOhlEzgnKCcoJyAbv7AfFVFuePRNm3s59YxCLg4rhcikoFMrkiT1/luXk/Q/ZXqX0BSK0O8ejG2rYsa174nily8MJs9WmyLUNg8kzCNxdvmCfPydMJW2WlWYGhgRC7Rvrwm91b+qp3ruMADA/24Ffrkj3OA2C59xDmOjt9F5QTlBOUszrR6LvPBW49yNQcO3c4xtYN7r32dlUAMrniorfCo/sjnegK6oeAoJygnKCcoJzl5VK3oN67utkwvfckV7e8m0uk5eVS1yxg/+PmEikoJygnKGe5VfHeHf3MPt5U97/nM3mOTaRrjk2PJ6vneE1QTlBOUE5QTlBOUM7qRKONlkivCcoJygnKCctZpQ0ByNpMNOhGJuXWcQDefynwI1vEb0yShMk3dhyAUhkuT81R9tGHNaavl6Z+2kq2FjsVPpvJc+Jq2hd3gunj8YlvtrfjAq18NGVydk0KbL0s0G5g5iszZFtJs7daacBU3Gjz0o8E5QTlBOUE5QTlBOUE5QTlpNMd6LR/GSGuWWr9omMAAAAASUVORK5CYII=">Wizyta</div>
+  <span class="hsp"></span>
+  <span class="hchip spec" id="specChip" title="Zmień specjalizację">🧩 Psychiatria ▾</span>
+  <span class="hchip" id="scopeChip" title="Zakres rozliczeń NFZ">🧾 PSY+AOS ▾</span>
+  <span class="hgrow"></span>
+  <button class="hbtn"><span>🕘</span> Historia</button>
+  <button class="hbtn outline"><span>📡</span> LIVE</button>
+  <span class="ver">v2.0</span>
+  <span class="moon" id="moon" title="Tryb ciemny">🌙</span>
+</header>
+
+<div class="specmenu" id="specMenu">
+  <div class="head">Specjalizacja</div>
+  <div class="specitem" data-spec="psychiatria">🧩 Psychiatria <span class="dot" style="background:#9333ea"></span></div>
+  <div class="specitem" data-spec="stomatologia">🦷 Stomatologia <span class="dot" style="background:#2563eb"></span></div>
+  <div class="specitem" data-spec="kardiologia">❤️ Kardiologia <span class="dot" style="background:#dc2626"></span></div>
+  <div class="specitem disabled">…i 14 innych w pełnej Wizycie</div>
+</div>
+
+<main class="wrap">
+
+  <section class="hero">
+    <div class="kick">Wielospecjalizacyjny asystent dokumentacji · rozliczenia NFZ</div>
+    <h1>Cała dokumentacja i rozliczenie <span>NFZ</span> — prosto z rozmowy. W pełni <span>offline</span>.</h1>
+    <p class="lead">Nagrywasz wywiad. Wizyta rozpoznaje role Lekarz / Pacjent i układa dokumentację — diagnozy <b>ICD‑10</b>, procedury i <b>punktację NFZ</b> w Twojej specjalizacji. Wszystko liczone <b>offline</b>: nagranie i dane pacjenta nie opuszczają Twojego komputera.</p>
+    <div class="hstats">
+      <div class="hstat"><b>~8 s</b><span>zamiast kwadransa pisania</span></div>
+      <div class="hstat"><b id="heroPts">75 pkt</b><span>NFZ z jednej wizyty</span></div>
+      <div class="hstat"><b>17</b><span>specjalizacji</span></div>
+    </div>
+    <div class="vchips">
+      <span class="vchip" style="animation-delay:.04s">🎙️ Transkrypcja offline (Whisper)</span>
+      <span class="vchip" style="animation-delay:.10s">🗣️ Diaryzacja Lekarz / Pacjent</span>
+      <span class="vchip" style="animation-delay:.16s">📚 12 163 ICD‑10 · 7 814 ICD‑9 · NFZ</span>
+      <span class="vchip" style="animation-delay:.22s">🔒 RODO — bez chmury</span>
+    </div>
+    <div class="hero-actions">
+      <button class="btn play" id="playDemo">▶ Zobacz, jak to działa</button>
+      <span class="hero-or">przełącz <b>🧩 specjalizację</b> u góry · albo <b>🎙️ NAGRYWAJ</b> → <b>✦ GENERUJ OPIS</b></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Nagrywanie wywiadu</h2>
+    <div class="rec-top">
+      <button class="btn rec" id="recBtn">🎙️ NAGRYWAJ</button>
+      <span class="rec-status" id="recStatus">Gotowy do nagrywania</span>
+    </div>
+    <div class="lbl">Transkrypcja wywiadu</div>
+    <div class="memo" id="memo" spellcheck="false"></div>
+    <div class="rec-actions">
+      <button class="tbtn warn" id="sugBtn">💡 PODPOWIEDZ PYTANIA</button>
+      <div><button class="tbtn blue" id="clearBtn">🗑️ WYCZYŚĆ</button><button class="tbtn blue" id="copyBtn">📋 KOPIUJ</button></div>
+    </div>
+    <div class="sug" id="sug">Sugestie: <span style="color:var(--faint)">— kliknij „Podpowiedz pytania", aby zobaczyć podpowiedzi suflera.</span></div>
+  </section>
+
+  <section class="card center">
+    <h2>Generowanie opisu</h2>
+    <div class="sub">Kontekst: <b id="ctxName" style="color:var(--spec)">Psychiatria</b> · zakres <b id="ctxScope">PSY+AOS</b></div>
+    <div class="radios">
+      <span style="color:var(--muted)">Model AI:</span>
+      <label><input type="radio" name="ai" checked> Auto</label>
+      <label><input type="radio" name="ai"> Claude</label>
+      <label><input type="radio" name="ai"> Gemini</label>
+    </div>
+    <div class="gen-btns">
+      <button class="btn gen" id="genBtn">✦ GENERUJ OPIS</button>
+      <button class="btn pick" id="pickBtn">≡ WYBIERZ Z LISTY</button>
+    </div>
+  </section>
+
+  <section class="card" id="resultCard" style="display:none">
+    <h2>Wygenerowany opis (Struktura)</h2>
+    <div class="vbanner" id="vbanner" style="display:none"></div>
+    <div class="sub" id="structSub">Diagnozy ICD-10, procedury ICD-9/NFZ, pozycje punktowane NFZ i leki.</div>
+    <div class="trust-note">🔒 AI proponuje — <b>Ty zaznaczasz i podpisujesz</b>. Decyzja zawsze należy do lekarza; transkrypcja i kody powstają <b>offline</b>, na Twoim komputerze.</div>
+
+    <div class="sec">
+      <div class="sec-h"><span class="sq" style="background:var(--green)">💊</span><span class="nm">Leki (substancje / EAN)</span><span class="hint">— zaznacz które uwzględnić</span></div>
+      <div class="gridwrap"><div class="grid" id="gLeki" style="--cols:34px 150px 1.7fr 100px 70px 120px 1.2fr 1.9fr">
+        <div class="gh"><div class="c"><input type="checkbox" checked></div><div class="c">Kod (EAN)</div><div class="c">Nazwa</div><div class="c">Typ (ATC)</div><div class="c">Status</div><div class="c">Zakres</div><div class="c">Substancja</div><div class="c">Opis</div></div>
+        <div class="empty">No Rows To Show</div>
+      </div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><span class="sq" id="sqIcd" style="background:var(--spec)">🩺</span><span class="nm">Diagnozy (ICD-10)</span><span class="hint">— zaznacz które uwzględnić</span></div>
+      <div class="gridwrap"><div class="grid" id="gIcd" style="--cols:34px 92px 1.8fr 120px 100px 2fr">
+        <div class="gh"><div class="c"><input type="checkbox" checked></div><div class="c">Kod</div><div class="c">Nazwa</div><div class="c">Spec</div><div class="c">Lokalizacja</div><div class="c">Opis</div></div>
+        <div class="empty">No Rows To Show</div>
+      </div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><span class="sq" style="background:var(--green)">🟢</span><span class="nm">Procedury (ICD-9 / NFZ)</span><span class="hint">— zaznacz które uwzględnić</span>
+        <div class="sec-tools"><span class="minibtn" id="scopeMini">🧾 PSY+AOS ▾</span><span class="minibtn">✨ AUTO WG SPECJALIZACJI</span></div></div>
+      <div class="gridwrap"><div class="grid" id="gProc" style="--cols:34px 96px 1.8fr 80px 80px 80px 130px 80px">
+        <div class="gh"><div class="c"><input type="checkbox" checked></div><div class="c">Kod</div><div class="c">Nazwa</div><div class="c">Spec</div><div class="c">NFZ pkt</div><div class="c">Tryb</div><div class="c">Źródło</div><div class="c">Audyt</div></div>
+        <div class="empty">No Rows To Show</div>
+      </div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><span class="sq" style="background:var(--spec)">🟣</span><span class="nm">Pozycje punktowane (NFZ)</span><span class="hint">— zaznacz które uwzględnić</span>
+        <div class="sec-tools"><span class="minibtn">🔗 ZEPNIJ TERAZ</span></div></div>
+      <div class="gridwrap"><div class="grid" id="gNfz" style="--cols:34px 150px 1.9fr 80px 90px 100px 100px 80px">
+        <div class="gh"><div class="c"><input type="checkbox" checked></div><div class="c">Kod</div><div class="c">Nazwa</div><div class="c">NFZ pkt</div><div class="c">Tryb</div><div class="c">Źródło</div><div class="c">Kontekst</div><div class="c">Audyt</div></div>
+        <div class="empty">No Rows To Show</div>
+      </div></div>
+      <div class="sumbar" id="sumbar" style="display:none">Σ NFZ rozliczane: <b id="sumPts">0,00 pkt</b> · plan: <b id="sumPlan">0,00 pkt</b></div>
+    </div>
+
+    <div class="copyjson"><button class="minibtn" id="jsonBtn">&lt;/&gt; KOPIUJ JSON</button></div>
+  </section>
+
+  <section class="cta-band">
+    <div class="cta-in">
+      <div>
+        <h3>Przetestuj Wizytę na swoich wizytach</h3>
+        <p>W pełni offline — nagranie i dane pacjenta nie wychodzą z gabinetu. Pokażemy na żywo na Twoich przypadkach, a Ty zawsze zatwierdzasz wynik.</p>
+      </div>
+      <div class="cta-row">
+        <a class="btn ctaprimary" id="ctaMail">✉ Umów demo / test</a>
+        <button class="btn ctacopy" id="ctaCopy" title="Kliknij, aby skopiować"><span class="js-mail-text">guziczak@proton.me</span> <span>⧉</span></button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>Wizyta v2 · demo interaktywne · 17 specjalizacji · offline + diaryzacja + ICD-10/NFZ</span>
+  <span>Kontakt: <span class="mailcopy js-mail-text" id="mailCopy">guziczak@proton.me</span> · <a id="mailLink">napisz</a></span>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const CONTACT={ email:"guziczak@proton.me" };
+const $=id=>document.getElementById(id);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+function toast(t){const e=$('toast');e.innerHTML=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
+function countUp(el,target){let c=0;const s=target/26;clearInterval(el._t);el._t=setInterval(()=>{c+=s;if(c>=target){c=target;clearInterval(el._t);}el.textContent=c.toFixed(2).replace('.',',')+' pkt';},26);}
+
+/* ===== SPECJALIZACJE — kody realne z medical_knowledge.db =====
+   proc:[kod, nazwa, nfz_pkt, tryb, źródło, kontekst]   icd:[kod, nazwa, lokalizacja, opis]
+   nfz :[kod, nazwa, nfz_pkt, tryb, źródło, kontekst]   leki:[ean, nazwa, atc, status, zakres, substancja, opis] */
+const SPECS={
+  psychiatria:{ name:'Psychiatria', icon:'🧩', tag:'PSY', color:'#9333ea', scope:'PSY+AOS', sumPts:75, sumPlan:11.05,
+    banner:'✓ <b>Gotowe w ~8 s</b> · 3 rozpoznania ICD‑10 · 1 lek · <b>75,00 pkt NFZ</b> do rozliczenia (+11,05 pkt w planie).',
+    dialog:[['L','Dzień dobry, proszę usiąść. Co Panią do mnie sprowadza?'],['P','Od kilku miesięcy mam gorszy nastrój, nic mnie nie cieszy, ciągle jestem zmęczona.'],['L','Od jak dawna i czy coś to wywołało?'],['P','Jakieś trzy miesiące, odkąd straciłam pracę. Gorzej śpię — budzę się w nocy i nie mogę zasnąć.'],['L','Czy pojawia się lęk, napięcie albo ciągłe zamartwianie się?'],['P','Tak, ciągle się zamartwiam, serce mi wali, nie umiem się odprężyć.'],['L','Czy ma Pani myśli rezygnacyjne lub myśli o samobójstwie?'],['P','Czasem myślę, że nie ma sensu, ale nie planuję nic sobie zrobić.'],['L','To wygląda na epizod depresyjny z lękiem i bezsennością. Proponuję sertralinę i psychoterapię, kontrola za dwa tygodnie.'],['P','Dobrze, zgadzam się.']],
+    suggestions:['Czy występują myśli rezygnacyjne lub samobójcze?','Jak wygląda sen, apetyt i masa ciała?','Czy zdarzają się napady lęku, kołatania serca?','Czy pacjentka używa alkoholu lub innych substancji?'],
+    leki:[['5909990963218','Asentra, tabl. powl. 50 mg','N06AB06','Rp','refundacja 30%','Sertralinum','Lek przeciwdepresyjny (SSRI). 1× dziennie rano; kontrola po 2 tyg.']],
+    icd:[['F32.1','Epizod depresji umiarkowany','—','Obniżony nastrój, anhedonia, męczliwość od ~3 mies.'],['F41.2','Zaburzenia depresyjne i lękowe mieszane','—','Współistniejący lęk, napięcie, kołatania serca.'],['G47.0','Zaburzenia zasypiania i utrzymania snu [bezsenność]','—','Trudności z zaśnięciem, wybudzenia nocne.']],
+    proc:[['94.111','Kliniczno-psychiatryczna ocena stanu psychicznego','—','auto','PSY 18/2025','wizyta'],['94.12','Rutynowa wizyta psychiatryczna','—','auto','PSY 18/2025','wizyta'],['94.39','Psychoterapia indywidualna — inne','—','auto','PSY 18/2025','plan']],
+    nfz:[['5.30.00.0000012','W12 Świadczenie specjalistyczne 2-go typu','75,00','auto','AOS 34/2026','wizyta'],['5.00.04.0000401','Przezczaszkowa stymulacja magnetyczna — sesja kwalifikacyjna','11,05','ręczny','PSY 18/2025','plan']] },
+
+  stomatologia:{ name:'Stomatologia', icon:'🦷', tag:'STM', color:'#2563eb', scope:'STM+AOS', sumPts:60, sumPlan:0,
+    banner:'✓ <b>Gotowe w ~8 s</b> · 3 rozpoznania ICD‑10 · 1 lek · <b>60,00 pkt NFZ</b> (STM) do rozliczenia.',
+    dialog:[['L','Dzień dobry, co Pana sprowadza?'],['P','Od kilku dni okropnie boli mnie ząb na dole po lewej, spuchło mi dziąsło.'],['L','Ból jest samoistny, pulsujący? Reaguje na ciepłe?'],['P','Tak, pulsuje, w nocy gorzej, a na ciepłe strasznie boli.'],['L','Zrobimy zdjęcie RTG. Widzę głęboki ubytek na zębie trzydzieści sześć i ognisko przy korzeniu — to ropień.'],['P','Da się go uratować?'],['L','Tak. Dziś znieczulę, otworzę ząb i odbarczę, włączę antybiotyk, a leczenie kanałowe dokończymy na kolejnej wizycie.'],['P','Dobrze, zgadzam się.']],
+    suggestions:['Czy ból jest samoistny czy tylko na bodziec?','Od kiedy pojawił się obrzęk?','Czy występuje gorączka lub złe samopoczucie?','Czy ząb był wcześniej leczony?'],
+    leki:[['5909990691319','Amotaks, tabl. 1 g','J01CA04','Rp','antybiotyk','Amoxicillinum','Antybiotyk — 1 g co 12 h przez 5–7 dni (ropień zębopochodny).']],
+    icd:[['K04.7','Ropień przywierzchołkowy bez zajęcia zatoki','36','Ognisko zapalne przy wierzchołku korzenia zęba 36.'],['K04.0','Zapalenie miazgi','36','Ból samoistny, pulsujący, nasilony na ciepło.'],['K02.1','Próchnica zębiny','36','Głęboki ubytek próchnicowy sięgający zębiny.']],
+    proc:[['23.0301','Rentgenodiagnostyka do 2 zdjęć wewnątrzustnych','20,00','auto','STM 60/2023','wizyta'],['23.0403','Znieczulenie przewodowe wewnątrzustne','20,00','auto','STM 60/2023','wizyta'],['23.0101','Badanie stomatologiczne z instruktażem higieny','—','auto','STM 60/2023','wizyta']],
+    nfz:[['5.13.00.2303010','Rentgenodiagnostyka — zdjęcia wewnątrzustne','20,00','auto','STM 60/2023','wizyta'],['5.13.00.2304030','Znieczulenie przewodowe wewnątrzustne','20,00','auto','STM 60/2023','wizyta'],['5.13.00.2312010','Trepanacja martwego zęba z opatrunkiem','30,00','auto','STM 60/2023','plan']] },
+
+  kardiologia:{ name:'Kardiologia', icon:'❤️', tag:'KARD', color:'#dc2626', scope:'AOS', sumPts:133, sumPlan:0,
+    banner:'✓ <b>Gotowe w ~8 s</b> · 3 rozpoznania ICD‑10 · 1 lek · <b>133,00 pkt NFZ</b> (AOS) do rozliczenia.',
+    dialog:[['L','Dzień dobry, co Pana sprowadza?'],['P','Od tygodnia czuję mocne, nierówne kołatania serca i mam zadyszkę przy wchodzeniu po schodach.'],['L','Czy zdarzały się zawroty głowy albo ból w klatce piersiowej?'],['P','Zawroty czasem tak, bólu nie. Mam nadciśnienie, leki biorę nieregularnie.'],['L','Zrobimy EKG i echo serca. W EKG widzę migotanie przedsionków, ciśnienie też podwyższone.'],['P','To groźne?'],['L','Włączymy lek przeciwkrzepliwy, by zapobiec udarowi, uregulujemy ciśnienie i rytm. Założymy Holtera i umówimy próbę wysiłkową.'],['P','Dobrze, zgadzam się.']],
+    suggestions:['Czy kołatania są napadowe czy stałe?','Czy występują zawroty głowy lub omdlenia?','Czy pojawia się ból w klatce piersiowej?','Jakie są wartości ciśnienia w pomiarach domowych?'],
+    leki:[['5909991019396','Eliquis, tabl. powl. 5 mg','B01AF02','Rp','refundacja','Apixabanum','Lek przeciwkrzepliwy (DOAC) — 5 mg 2× dziennie; profilaktyka udaru w migotaniu przedsionków.']],
+    icd:[['I48','Migotanie i trzepotanie przedsionków','—','Niemiarowa czynność serca, kołatania, zadyszka wysiłkowa.'],['I10','Nadciśnienie samoistne (pierwotne)','—','Podwyższone ciśnienie, leczenie nieregularne.'],['E78.5','Hiperlipidemia, nieokreślona','—','Do weryfikacji w lipidogramie.']],
+    proc:[['88.721','Echokardiografia','—','auto','AOS 34/2026','wizyta'],['89.501','Holter RR — monitorowanie ciśnienia tętniczego','—','auto','AOS 34/2026','plan'],['89.43','Badanie wysiłkowe serca na ergometrze rowerowym','—','auto','AOS 34/2026','plan']],
+    nfz:[['5.30.00.0000013','W13 Świadczenie specjalistyczne 3-go typu','133,00','auto','AOS 34/2026','wizyta']] }
+};
+let cur = SPECS.psychiatria;
+
+/* ===== przełącznik specjalizacji ===== */
+function closeSpecMenu(){$('specMenu').classList.remove('show');}
+function openSpecMenu(){const r=$('specChip').getBoundingClientRect();const m=$('specMenu');m.style.left=Math.max(8,r.left)+'px';m.style.top=(r.bottom+6)+'px';m.classList.add('show');
+  document.querySelectorAll('#specMenu .specitem[data-spec]').forEach(it=>it.classList.toggle('on',it.dataset.spec===keyOf(cur)));}
+function keyOf(s){return Object.keys(SPECS).find(k=>SPECS[k]===s);}
+function switchSpec(key){
+  cur=SPECS[key];
+  document.documentElement.style.setProperty('--spec',cur.color);
+  $('specChip').innerHTML=cur.icon+' '+cur.name+' ▾';
+  $('scopeChip').innerHTML='🧾 '+cur.scope+' ▾';
+  $('scopeMini').innerHTML='🧾 '+cur.scope+' ▾';
+  $('ctxName').textContent=cur.name; $('ctxScope').textContent=cur.scope;
+  $('heroPts').textContent=cur.sumPts+' pkt';
+  resetRec(); recorded=false; generated=false;
+  $('resultCard').style.display='none'; $('sumbar').style.display='none'; $('vbanner').style.display='none';
+  $('sug').innerHTML='Sugestie: <span style="color:var(--faint)">— kliknij „Podpowiedz pytania", aby zobaczyć podpowiedzi suflera.</span>';
+  closeSpecMenu();
+  toast('Specjalizacja: <b>'+cur.name+'</b> — nagraj wywiad albo „▶ Zobacz, jak to działa".');
+}
+$('specChip').onclick=(e)=>{e.stopPropagation(); $('specMenu').classList.contains('show')?closeSpecMenu():openSpecMenu();};
+document.querySelectorAll('#specMenu .specitem[data-spec]').forEach(it=>it.onclick=()=>switchSpec(it.dataset.spec));
+document.addEventListener('click',(e)=>{if(!$('specMenu').contains(e.target)&&e.target!==$('specChip'))closeSpecMenu();});
+
+/* ===== nagrywanie ===== */
+let recording=false, recorded=false, secs=0, timerInt=null, generated=false;
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function resetRec(){$('memo').innerHTML='';recorded=false;$('recStatus').classList.remove('live');$('recStatus').textContent='Gotowy do nagrywania';}
+async function runRecording(fast){
+  if(recording) return;
+  if(recorded){ resetRec(); }
+  recording=true; recorded=false;
+  const b=$('recBtn'); b.classList.add('on'); b.textContent='■ STOP'; b.disabled=true;
+  const st=$('recStatus'); st.classList.add('live');
+  $('memo').innerHTML=''; secs=0;
+  timerInt=setInterval(()=>{secs++; st.textContent='● Nagrywanie '+fmt(secs);},1000);
+  st.textContent='● Nagrywanie 00:00';
+  const cd=fast?3:9, pd=fast?80:230;
+  for(const [who,text] of cur.dialog){
+    const div=document.createElement('div');
+    div.innerHTML='<span class="'+(who==='L'?'L':'P')+'">'+(who==='L'?'Lekarz':'Pacjent')+':</span> ';
+    $('memo').appendChild(div);
+    const span=document.createElement('span'); div.appendChild(span);
+    for(let i=0;i<text.length;i++){ span.textContent=text.slice(0,i+1); $('memo').scrollTop=$('memo').scrollHeight; await wait(cd); }
+    await wait(pd);
+  }
+  clearInterval(timerInt);
+  recording=false; recorded=true;
+  b.classList.remove('on'); b.textContent='🎙️ NAGRYWAJ'; b.disabled=false;
+  st.classList.remove('live'); st.textContent='✓ Nagrano · gotowe do generowania';
+  toast('Transkrypcja gotowa — kliknij „GENERUJ OPIS”.');
+}
+$('recBtn').onclick=()=>runRecording(false);
+$('sugBtn').onclick=()=>{
+  const s=$('sug'); s.innerHTML='Sugestie: <span style="color:var(--faint)">AI Asystent — pytania pogłębiające:</span><div class="chips"></div>';
+  const box=s.querySelector('.chips');
+  cur.suggestions.forEach((q,i)=>setTimeout(()=>{const c=document.createElement('span');c.className='chip-q';c.textContent=q;c.onclick=()=>copy(q,'Skopiowano pytanie');box.appendChild(c);},i*110));
+};
+$('clearBtn').onclick=()=>{resetRec();toast('Wyczyszczono transkrypcję.');};
+$('copyBtn').onclick=()=>copy($('memo').innerText.trim(),'Skopiowano transkrypcję.');
+
+/* ===== generowanie → 4 tabele ===== */
+function rowHTML(cells){return cells.map(c=>'<div class="c'+(c.wrap?' wrap':'')+'">'+c.h+'</div>').join('');}
+function fill(gridId, rows){const g=$(gridId); g.querySelectorAll('.gr,.empty').forEach(e=>e.remove());
+  rows.forEach((r,i)=>{const d=document.createElement('div');d.className='gr';d.style.animationDelay=(i*0.07)+'s';d.innerHTML=r;g.appendChild(d);});}
+function applyCols(){document.querySelectorAll('.grid').forEach(g=>{const c=g.style.getPropertyValue('--cols');g.querySelectorAll('.gh,.gr').forEach(x=>x.style.gridTemplateColumns=c);});}
+function loc(v){return v&&v!=='—'?'<span class="loc">'+v+'</span>':'<span style="color:var(--faint)">—</span>';}
+async function generate(){
+  if(!recorded){ toast('Najpierw nagraj wywiad (🎙️ NAGRYWAJ).'); return; }
+  const b=$('genBtn'); b.disabled=true; b.innerHTML='<span class="spin"></span> Generuję opis…';
+  $('resultCard').style.display='';
+  $('structSub').textContent='Powiernik analizuje transkrypcję i dobiera kody z lokalnej bazy (RAG: ICD-10 / ICD-9 / NFZ / leki)…';
+  $('resultCard').scrollIntoView({behavior:'smooth',block:'start'});
+  await wait(1700);
+
+  fill('gLeki', cur.leki.map(r=>rowHTML([{h:'<input type="checkbox" checked>'},{h:'<span class="code ean">'+r[0]+'</span>'},{h:r[1],wrap:1},{h:r[2]},{h:'<span class="badge">'+r[3]+'</span>'},{h:r[4]},{h:'<i>'+r[5]+'</i>'},{h:r[6],wrap:1}])));
+  fill('gIcd', cur.icd.map(r=>rowHTML([{h:'<input type="checkbox" checked>'},{h:'<span class="code icd">'+r[0]+'</span>'},{h:'<b>'+r[1]+'</b>',wrap:1},{h:'<span class="badge spec">'+cur.name+'</span>'},{h:loc(r[2])},{h:r[3],wrap:1}])));
+  fill('gProc', cur.proc.map(r=>rowHTML([{h:'<input type="checkbox" checked>'},{h:'<span class="code icd9">'+r[0]+'</span>'},{h:r[1],wrap:1},{h:'<span class="badge spec">'+cur.tag+'</span>'},{h:(r[2]==='—'?'<span style="color:var(--faint)">—</span>':'<span class="pts">'+r[2]+'</span>')},{h:r[3]},{h:r[4]},{h:'<span class="badge ok">OK</span>'}])));
+  fill('gNfz', cur.nfz.map(r=>rowHTML([{h:'<input type="checkbox" '+(r[5]==='wizyta'?'checked':'')+'>'},{h:'<span class="code nfz">'+r[0]+'</span>'},{h:r[1],wrap:1},{h:'<span class="pts">'+r[2]+'</span>'},{h:r[3]},{h:r[4],wrap:1},{h:r[5]},{h:'<span class="badge '+(r[5]==='wizyta'?'ok':'')+'">'+(r[5]==='wizyta'?'OK':'rozważ')+'</span>'}])));
+  applyCols();
+
+  $('sumbar').style.display='flex';
+  countUp($('sumPts'),cur.sumPts); countUp($('sumPlan'),cur.sumPlan);
+  $('vbanner').style.display='flex'; $('vbanner').innerHTML=cur.banner;
+  $('structSub').innerHTML='Wygenerowano dla kontekstu <b style="color:var(--spec)">'+cur.name+'</b> · zakres <b>'+cur.scope+'</b>. Zaznacz pozycje do zapisania/rozliczenia.';
+  b.disabled=false; b.innerHTML='✦ GENERUJ OPIS'; generated=true;
+  toast('Opis wygenerowany — 4 sekcje uzupełnione.');
+}
+$('genBtn').onclick=generate;
+$('pickBtn').onclick=()=>toast('Wybór z listy ICD/NFZ — dostępny w pełnej aplikacji.');
+$('jsonBtn').onclick=()=>{
+  if(!generated){toast('Najpierw wygeneruj opis.');return;}
+  const obj={specjalizacja:cur.name,zakres:cur.scope,leki:cur.leki.map(r=>({ean:r[0],nazwa:r[1],atc:r[2],substancja:r[5]})),diagnozy:cur.icd.map(r=>({icd10:r[0],nazwa:r[1],lokalizacja:r[2]})),procedury:cur.proc.map(r=>({icd9:r[0],nazwa:r[1]})),nfz:cur.nfz.map(r=>({kod:r[0],nazwa:r[1],pkt:r[2]}))};
+  copy(JSON.stringify(obj,null,2),'Skopiowano JSON opisu.');
+};
+
+/* ===== auto-play ===== */
+async function autoPlay(){ if(recording) return; $('recBtn').scrollIntoView({behavior:'smooth',block:'center'}); await wait(550); await runRecording(true); await wait(450); await generate(); }
+$('playDemo').onclick=autoPlay;
+
+/* ===== dark, kontakt ===== */
+$('moon').onclick=()=>{document.body.classList.toggle('dark');$('moon').textContent=document.body.classList.contains('dark')?'☀️':'🌙';};
+function fallbackCopy(t){const a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.top='-1000px';document.body.appendChild(a);a.focus();a.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(a);}
+function copy(t,msg){ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>toast(msg)).catch(()=>{fallbackCopy(t);toast(msg);});} else {fallbackCopy(t);toast(msg);} }
+const mail='mailto:'+CONTACT.email+'?subject='+encodeURIComponent('Wizyta — demo / test w gabinecie')+'&body='+encodeURIComponent('Dzień dobry, chciał(a)bym umówić demo/test Wizyty na przypadkach z mojego gabinetu.');
+$('mailLink').href=mail; $('ctaMail').href=mail;
+$('mailCopy').onclick=()=>copy(CONTACT.email,'Skopiowano adres: '+CONTACT.email);
+$('ctaCopy').onclick=()=>copy(CONTACT.email,'Skopiowano adres: '+CONTACT.email);
+
+applyCols();
+setTimeout(()=>toast('Demo Wizyty — przełącz <b>🧩 specjalizację</b> u góry albo kliknij „▶ Zobacz, jak to działa".'),700);
+</script>
+</body>
+</html>
