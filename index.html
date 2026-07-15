@@ -45,6 +45,8 @@ body{margin:0;font-family:"Segoe UI Variable","Segoe UI",Roboto,system-ui,sans-s
 .hsp{width:6px;flex:none}.hgrow{flex:1 1 auto;min-width:8px}
 .hbtn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 11px;border-radius:7px;color:#fff;background:transparent;border:none;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
 .hbtn:hover{background:rgba(255,255,255,.14)}.hbtn.outline{border:1px solid rgba(255,255,255,.5)}
+.hbtn.back{flex:none;border:1px solid rgba(255,255,255,.42);text-decoration:none;font-weight:600}
+.hbtn.back:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .hchip{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 10px;border-radius:7px;background:rgba(255,255,255,.16);color:#fff;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
 .hchip.spec{background:rgba(255,255,255,.24)}
 .hchip:hover{background:rgba(255,255,255,.3)}
@@ -159,12 +161,13 @@ body.dark .vbanner{color:#6bdc93}
 @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 @keyframes rowin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important}}
-@media(max-width:720px){.wrap{padding:14px 10px 90px}.btn.gen,.btn.pick{min-width:0;width:100%}.cta-in{flex-direction:column;text-align:center}}
+@media(max-width:720px){.wrap{padding:14px 10px 90px}.btn.gen,.btn.pick{min-width:0;width:100%}.cta-in{flex-direction:column;text-align:center}.hbtn.back{width:34px;padding:0;justify-content:center}.hbtn.back span{display:none}}
 </style>
 </head>
 <body>
 
 <header class="appbar">
+  <a class="hbtn back" id="portfolioBack" href="https://guziczak.github.io/" target="_blank" rel="noopener noreferrer" aria-label="Wróć do portfolio — otwiera nową kartę">← <span>Portfolio</span></a>
   <div class="logo"><img class="ic" alt="Wizyta" width="30" height="30" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACkElEQVR4nOXbP2gTURzA8W9+uZTaFIwksbFJhSoqSFGRKugkFcHJxUEdHBQXHfyDi3/qVv8MFp3sZgcRdHBwE1FxtiIKIqKIUIxamkCEiAHzR16gQ2hMLr3cJdffZwlc3r337se99+4evwsMHfhYQTFBOUE5QTlBOUE5y4tGggKbh3uJR4IQaFK4AvO5Eh++FiiVl0EAxkbDXDuZYDDWWlPp+b9cvDPHyze/8e0QGBsNc3c81fLFG8l4iOkrKfZsD+PLAAQFrp9KIAGndQxUf90iblU8sr6XNVHnI8zcCWb+8N0cEF0ZXHTs9sMsbz/9aXjeto0rOHsoWnOsOnn6eRVYYC7+xeslTGoOhlEzgnKCcoJyAbv7AfFVFuePRNm3s59YxCLg4rhcikoFMrkiT1/luXk/Q/ZXqX0BSK0O8ejG2rYsa174nily8MJs9WmyLUNg8kzCNxdvmCfPydMJW2WlWYGhgRC7Rvrwm91b+qp3ruMADA/24Ffrkj3OA2C59xDmOjt9F5QTlBOUszrR6LvPBW49yNQcO3c4xtYN7r32dlUAMrniorfCo/sjnegK6oeAoJygnKCcoJzl5VK3oN67utkwvfckV7e8m0uk5eVS1yxg/+PmEikoJygnKGe5VfHeHf3MPt5U97/nM3mOTaRrjk2PJ6vneE1QTlBOUE5QTlBOUM7qRKONlkivCcoJygnKCctZpQ0ByNpMNOhGJuXWcQDefynwI1vEb0yShMk3dhyAUhkuT81R9tGHNaavl6Z+2kq2FjsVPpvJc+Jq2hd3gunj8YlvtrfjAq18NGVydk0KbL0s0G5g5iszZFtJs7daacBU3Gjz0o8E5QTlBOUE5QTlBOUE5QTlpNMd6LR/GSGuWWr9omMAAAAASUVORK5CYII=">Wizyta</div>
   <span class="hsp"></span>
   <span class="hchip spec" id="specChip" title="Zmień specjalizację">🧩 Psychiatria ▾</span>
@@ -306,6 +309,23 @@ body.dark .vbanner{color:#6bdc93}
 "use strict";
 const CONTACT={ email:"guziczak@proton.me" };
 const $=id=>document.getElementById(id);
+const MUSIC_TIME_RE=/^(?:0|[1-9]\d*)(?:\.\d{1,3})?$/;
+function readMusicHandoff(search){
+  const params=new URLSearchParams(search),rawTime=params.get('musicTime'),rawPlaying=params.get('musicPlaying');
+  if(rawTime===null||rawPlaying===null||!MUSIC_TIME_RE.test(rawTime)||!/^[01]$/.test(rawPlaying))return null;
+  const time=Number(rawTime);
+  return Number.isFinite(time)?{time,playing:rawPlaying==='1'}:null;
+}
+function formatMusicTime(time){return time.toFixed(3).replace(/\.?0+$/,'');}
+function portfolioUrl(state){
+  const url=new URL('https://guziczak.github.io/');
+  if(state){url.searchParams.set('musicTime',formatMusicTime(state.time));url.searchParams.set('musicPlaying',state.playing?'1':'0');}
+  return url.href;
+}
+const portfolioBack=$('portfolioBack'),musicHandoff=readMusicHandoff(window.location.search);
+function updatePortfolioBack(){portfolioBack.href=portfolioUrl(musicHandoff);}
+updatePortfolioBack();
+portfolioBack.addEventListener('click',updatePortfolioBack);
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function toast(t){const e=$('toast');e.innerHTML=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2600);}
 function countUp(el,target){let c=0;const s=target/26;clearInterval(el._t);el._t=setInterval(()=>{c+=s;if(c>=target){c=target;clearInterval(el._t);}el.textContent=c.toFixed(2).replace('.',',')+' pkt';},26);}
